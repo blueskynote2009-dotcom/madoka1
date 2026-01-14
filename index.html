@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>まどか先生の英語の保健室：思考のスキャニングトレーニング</title>
+    <title>まどか先生の英語の保健室</title>
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -13,233 +13,229 @@
     <script src="https://unpkg.com/lucide-react@latest"></script>
 
     <style>
-        /* アニメーションの補完（Tailwindプラグインの代わり） */
-        .animate-in { animation: fadeIn 0.5s ease-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .fade-in { opacity: 1; animation: fadeIn 0.8s ease-in; }
-        .zoom-in { animation: zoomIn 0.6s ease-out; }
-        @keyframes zoomIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .animate-in { animation: fadeIn 0.5s ease-out; }
+        .zoom-in { animation: fadeIn 0.6s ease-out; transform-origin: center; }
     </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="bg-[#fdf8f1]">
+    <div id="root">
+        <div class="flex items-center justify-center min-h-screen text-[#b8a398] font-bold">
+            Loading...
+        </div>
+    </div>
 
     <script type="text/babel">
-        const { useState, useEffect, useCallback } = React;
-        const { 
-            Timer, CheckCircle, XCircle, Play, RotateCcw, 
-            Award, ArrowRight, Heart, Coffee, Leaf, 
-            Sparkles, Lightbulb, Shuffle, ChevronRight 
-        } = LucideReact;
+        // ライブラリが確実に読み込まれてから開始
+        window.onload = () => {
+            const { useState, useEffect, useCallback } = React;
+            
+            // Lucideアイコンの取得（エラー防止のため、存在確認付き）
+            const Icons = window.LucideReact || {};
+            const { 
+                Timer, CheckCircle, XCircle, Play, RotateCcw, 
+                Award, ArrowRight, Heart, Coffee, Leaf, 
+                Sparkles, Lightbulb, ChevronRight 
+            } = Icons;
 
-        const App = () => {
-            const [gameState, setGameState] = useState('start'); 
-            const [currentLevelIdx, setCurrentLevelIdx] = useState(0);
-            const [shuffledLevels, setShuffledLevels] = useState([]);
-            const [score, setScore] = useState(0);
-            const [timeLeft, setTimeLeft] = useState(300); 
-            const [feedback, setFeedback] = useState(null); 
-            const [combo, setCombo] = useState(0);
-            const [showThinkingPoint, setShowThinkingPoint] = useState(false);
-            const [selectedOption, setSelectedOption] = useState(null);
-
-            const allLevels = [
-                { type: "【具体 → 抽象】", target: "hamsters, rabbits, and guinea pigs", options: ["small pet animals", "aquatic creatures", "wild predators", "colorful birds"], answer: "small pet animals", thinking: "個別の動物の名前を『小動物』というカテゴリーにまとめています。" },
-                { type: "【具体 → 抽象】", target: "from 9:00 AM to 5:00 PM", options: ["during the daytime", "throughout the night", "at sunset", "twice a week"], answer: "during the daytime", thinking: "具体的な時刻を『日中』という時間概念に変換しています。" },
-                { type: "【具体 → 抽象】", target: "well tested and controlled", options: ["properly assessed", "newly invented", "cheap and fast", "dangerous to use"], answer: "properly assessed", thinking: "『テスト・制御される』を『適切に評価（assessed）される』という概念に。" },
-                { type: "【具体 → 抽象】", target: "no permit is required", options: ["can use it freely", "must pay a fee", "limited access", "only for students"], answer: "can use it freely", thinking: "『許可不要』＝『自由に使える』という判断力を問う言い換えです。" },
-                { type: "【具体 → 抽象】", target: "farthest from the entrance", options: ["at the back of the area", "near the front door", "beside the exit", "in the middle"], answer: "at the back of the area", thinking: "入口から最も遠い＝『一番奥』を指します。" },
-                { type: "【具体 → 抽象】", target: "every Monday and Thursday", options: ["twice a week", "on weekends", "every other day", "daily"], answer: "twice a week", thinking: "特定の曜日を『週に何回』という頻度に抽象化しています。" },
-                { type: "【具体 → 抽象】", target: "within 10 minutes on foot", options: ["walking distance", "by public transport", "an hour drive", "near the station"], answer: "walking distance", thinking: "『徒歩10分以内』を『徒歩圏内』と言い換えています。" },
-                { type: "【具体 → 抽象】", target: "soft grass on the floor", options: ["vegetation bedding", "sandy ground", "wooden tiles", "plastic cover"], answer: "vegetation bedding", thinking: "『草（grass）』を『植物（vegetation）』という上位語に変換しています。" },
-                { type: "【具体 → 抽象】", target: "discount for students", options: ["reduced price for learners", "free admission", "full-price tickets", "group reservation"], answer: "reduced price for learners", thinking: "『学生割引』を『学習者のための価格減免』と説明的に言い換えています。" },
-                { type: "【具体 → 抽象】", target: "18 years old and over", options: ["adults only", "children only", "for families", "all ages"], answer: "adults only", thinking: "年齢制限を『大人限定』というカテゴリーに抽象化しています。" },
-                { type: "【抽象 → 具体】", target: "outdoor activities", options: ["hiking and camping", "coding and gaming", "reading and writing", "sleeping and dreaming"], answer: "hiking and camping", thinking: "『屋外活動』の具体的な中身を特定するトレーニングです。" },
-                { type: "【抽象 → 具体】", target: "medical facilities", options: ["hospitals and clinics", "theaters and parks", "banks and stores", "factories and farms"], answer: "hospitals and clinics", thinking: "『医療施設』という言葉から、具体的な場所を想起します。" },
-                { type: "【抽象 → 具体】", target: "academic achievements", options: ["good grades and awards", "delicious food", "new clothes", "fast cars"], answer: "good grades and awards", thinking: "『学業の成果』を具体的な成績や賞に関連付けます。" },
-                { type: "【抽象 → 具体】", target: "digital devices", options: ["smartphones and tablets", "pens and pencils", "chairs and tables", "shoes and socks"], answer: "smartphones and tablets", thinking: "『デジタル機器』の具体例をスキャンします。" },
-                { type: "【抽象 → 具体】", target: "tropical fruits", options: ["mangoes and pineapples", "apples and pears", "grapes and cherries", "peaches and plums"], answer: "mangoes and pineapples", thinking: "カテゴリーを具体的な名前に分解する練習です。" },
-                { type: "【抽象 → 具体】", target: "dairy products", options: ["milk and cheese", "meat and fish", "bread and rice", "sugar and salt"], answer: "milk and cheese", thinking: "『乳製品』に含まれる具体的な食品を選びます。" },
-                { type: "【抽象 → 具体】", target: "seasonal changes", options: ["spring, summer, fall, winter", "morning, noon, evening", "north, south, east, west", "red, blue, yellow"], answer: "spring, summer, fall, winter", thinking: "『季節の移り変わり』の中身を具体的に特定します。" },
-                { type: "【抽象 → 具体】", target: "emergency contacts", options: ["police and ambulance", "friends and family", "teachers and staff", "shop and cafe"], answer: "police and ambulance", thinking: "『緊急連絡先』を具体的な機関に結びつけます。" },
-                { type: "【抽象 → 具体】", target: "natural disasters", options: ["earthquakes and floods", "sunshine and rainbow", "festivals and events", "music and art"], answer: "earthquakes and floods", thinking: "『自然災害』を具体的な現象に翻訳します。" },
-                { type: "【抽象 → 具体】", target: "daily necessities", options: ["food and water", "luxury watches", "designer bags", "sports cars"], answer: "food and water", thinking: "『生活必需品』という言葉が何を指すかを判断します。" }
-            ];
-
-            const shuffleArray = (array) => {
-                const newArr = [...array];
-                for (let i = newArr.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
-                }
-                return newArr;
+            // アイコンが読み込めない場合の代替（フォールバック）
+            const Icon = ({ name: Component, ...props }) => {
+                return Component ? <Component {...props} /> : <span className="w-4 h-4" />;
             };
 
-            const startGame = () => {
-                const preparedLevels = shuffleArray(allLevels).map(level => ({
-                    ...level,
-                    options: shuffleArray(level.options)
-                }));
-                setShuffledLevels(preparedLevels);
-                setGameState('playing');
-                setCurrentLevelIdx(0);
-                setScore(0);
-                setTimeLeft(300);
-                setCombo(0);
-                setFeedback(null);
-                setShowThinkingPoint(false);
-                setSelectedOption(null);
-            };
+            const App = () => {
+                const [gameState, setGameState] = useState('start');
+                const [currentLevelIdx, setCurrentLevelIdx] = useState(0);
+                const [shuffledLevels, setShuffledLevels] = useState([]);
+                const [score, setScore] = useState(0);
+                const [timeLeft, setTimeLeft] = useState(300);
+                const [feedback, setFeedback] = useState(null);
+                const [combo, setCombo] = useState(0);
+                const [showThinkingPoint, setShowThinkingPoint] = useState(false);
+                const [selectedOption, setSelectedOption] = useState(null);
 
-            const handleSelectAnswer = useCallback((option) => {
-                if (showThinkingPoint) return;
-                const isCorrect = option === shuffledLevels[currentLevelIdx].answer;
-                setSelectedOption(option);
-                if (isCorrect) {
-                    setScore(prev => prev + 5); 
-                    setCombo(prev => prev + 1);
-                    setFeedback('correct');
-                } else {
+                const allLevels = [
+                    { type: "【具体 → 抽象】", target: "hamsters, rabbits, and guinea pigs", options: ["small pet animals", "aquatic creatures", "wild predators", "colorful birds"], answer: "small pet animals", thinking: "個別の動物の名前を『小動物』というカテゴリーにまとめています。" },
+                    { type: "【具体 → 抽象】", target: "from 9:00 AM to 5:00 PM", options: ["during the daytime", "throughout the night", "at sunset", "twice a week"], answer: "during the daytime", thinking: "具体的な時刻を『日中』という時間概念に変換しています。" },
+                    { type: "【具体 → 抽象】", target: "well tested and controlled", options: ["properly assessed", "newly invented", "cheap and fast", "dangerous to use"], answer: "properly assessed", thinking: "『テスト・制御される』を『適切に評価（assessed）される』という概念に。" },
+                    { type: "【具体 → 抽象】", target: "no permit is required", options: ["can use it freely", "must pay a fee", "limited access", "only for students"], answer: "can use it freely", thinking: "『許可不要』＝『自由に使える』という判断力を問う言い換えです。" },
+                    { type: "【具体 → 抽象】", target: "farthest from the entrance", options: ["at the back of the area", "near the front door", "beside the exit", "in the middle"], answer: "at the back of the area", thinking: "入口から最も遠い＝『一番奥』を指します。" },
+                    { type: "【具体 → 抽象】", target: "every Monday and Thursday", options: ["twice a week", "on weekends", "every other day", "daily"], answer: "twice a week", thinking: "特定の曜日を『週に何回』という頻度に抽象化しています。" },
+                    { type: "【具体 → 抽象】", target: "within 10 minutes on foot", options: ["walking distance", "by public transport", "an hour drive", "near the station"], answer: "walking distance", thinking: "『徒歩10分以内』を『徒歩圏内』と言い換えています。" },
+                    { type: "【具体 → 抽象】", target: "soft grass on the floor", options: ["vegetation bedding", "sandy ground", "wooden tiles", "plastic cover"], answer: "vegetation bedding", thinking: "『草（grass）』を『植物（vegetation）』という上位語に変換しています。" },
+                    { type: "【具体 → 抽象】", target: "discount for students", options: ["reduced price for learners", "free admission", "full-price tickets", "group reservation"], answer: "reduced price for learners", thinking: "『学生割引』を『学習者のための価格減免』と言い換えています。" },
+                    { type: "【具体 → 抽象】", target: "18 years old and over", options: ["adults only", "children only", "for families", "all ages"], answer: "adults only", thinking: "年齢制限を『大人限定』というカテゴリーに抽象化しています。" },
+                    { type: "【抽象 → 具体】", target: "outdoor activities", options: ["hiking and camping", "coding and gaming", "reading and writing", "sleeping and dreaming"], answer: "hiking and camping", thinking: "『屋外活動』の具体的な中身を特定するトレーニングです。" },
+                    { type: "【抽象 → 具体】", target: "medical facilities", options: ["hospitals and clinics", "theaters and parks", "banks and stores", "factories and farms"], answer: "hospitals and clinics", thinking: "『医療施設』という言葉から、具体的な場所を想起します。" },
+                    { type: "【抽象 → 具体】", target: "academic achievements", options: ["good grades and awards", "delicious food", "new clothes", "fast cars"], answer: "good grades and awards", thinking: "『学業の成果』を具体的な成績や賞に関連付けます。" },
+                    { type: "【抽象 → 具体】", target: "digital devices", options: ["smartphones and tablets", "pens and pencils", "chairs and tables", "shoes and socks"], answer: "smartphones and tablets", thinking: "『デジタル機器』の具体例をスキャンします。" },
+                    { type: "【抽象 → 具体】", target: "tropical fruits", options: ["mangoes and pineapples", "apples and pears", "grapes and cherries", "peaches and plums"], answer: "mangoes and pineapples", thinking: "カテゴリーを具体的な名前に分解する練習です。" },
+                    { type: "【抽象 → 具体】", target: "dairy products", options: ["milk and cheese", "meat and fish", "bread and rice", "sugar and salt"], answer: "milk and cheese", thinking: "『乳製品』に含まれる具体的な食品を選びます。" },
+                    { type: "【抽象 → 具体】", target: "seasonal changes", options: ["spring, summer, fall, winter", "morning, noon, evening", "north, south, east, west", "red, blue, yellow"], answer: "spring, summer, fall, winter", thinking: "『季節の移り変わり』の中身を具体的に特定します。" },
+                    { type: "【抽象 → 具体】", target: "emergency contacts", options: ["police and ambulance", "friends and family", "teachers and staff", "shop and cafe"], answer: "police and ambulance", thinking: "『緊急連絡先』を具体的な機関に結びつけます。" },
+                    { type: "【抽象 → 具体】", target: "natural disasters", options: ["earthquakes and floods", "sunshine and rainbow", "festivals and events", "music and art"], answer: "earthquakes and floods", thinking: "『自然災害』を具体的な現象に翻訳します。" },
+                    { type: "【抽象 → 具体】", target: "daily necessities", options: ["food and water", "luxury watches", "designer bags", "sports cars"], answer: "food and water", thinking: "『生活必需品』という言葉が何を指すかを判断します。" }
+                ];
+
+                const shuffleArray = (array) => {
+                    const newArr = [...array];
+                    for (let i = newArr.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+                    }
+                    return newArr;
+                };
+
+                const startGame = () => {
+                    const preparedLevels = shuffleArray(allLevels).map(level => ({
+                        ...level,
+                        options: shuffleArray(level.options)
+                    }));
+                    setShuffledLevels(preparedLevels);
+                    setGameState('playing');
+                    setCurrentLevelIdx(0);
+                    setScore(0);
+                    setTimeLeft(300);
                     setCombo(0);
-                    setFeedback('wrong');
-                }
-                setShowThinkingPoint(true);
-            }, [currentLevelIdx, shuffledLevels, showThinkingPoint]);
-
-            const handleGoToNext = () => {
-                if (currentLevelIdx < shuffledLevels.length - 1) {
-                    setCurrentLevelIdx(prev => prev + 1);
                     setFeedback(null);
                     setShowThinkingPoint(false);
                     setSelectedOption(null);
-                } else {
-                    setGameState('result');
-                }
-            };
+                };
 
-            useEffect(() => {
-                let timer;
-                if (gameState === 'playing' && timeLeft > 0 && !showThinkingPoint) {
-                    timer = setInterval(() => {
-                        setTimeLeft(prev => prev - 1);
-                    }, 1000);
-                } else if (timeLeft === 0) {
-                    setGameState('result');
-                }
-                return () => clearInterval(timer);
-            }, [gameState, timeLeft, showThinkingPoint]);
+                const handleSelectAnswer = (option) => {
+                    if (showThinkingPoint) return;
+                    const isCorrect = option === shuffledLevels[currentLevelIdx].answer;
+                    setSelectedOption(option);
+                    if (isCorrect) {
+                        setScore(prev => prev + 5); 
+                        setCombo(prev => prev + 1);
+                        setFeedback('correct');
+                    } else {
+                        setCombo(0);
+                        setFeedback('wrong');
+                    }
+                    setShowThinkingPoint(true);
+                };
 
-            const theme = {
-                bg: "bg-[#fdf8f1]", 
-                card: "bg-white",
-                primary: "bg-[#ffb7b2]", 
-                primaryHover: "hover:bg-[#ff9a9e]",
-                secondary: "bg-[#a8dadc]", 
-                textMain: "text-[#5a4d44]", 
-                textSub: "text-[#8e7e74]", 
-            };
+                const handleGoToNext = () => {
+                    if (currentLevelIdx < shuffledLevels.length - 1) {
+                        setCurrentLevelIdx(prev => prev + 1);
+                        setFeedback(null);
+                        setShowThinkingPoint(false);
+                        setSelectedOption(null);
+                    } else {
+                        setGameState('result');
+                    }
+                };
 
-            return (
-                <div className={`min-h-screen ${theme.bg} flex items-center justify-center p-4 font-sans ${theme.textMain}`}>
-                    <div className={`w-full max-w-md ${theme.card} rounded-[3.5rem] shadow-[0_30px_70px_rgba(180,160,140,0.2)] overflow-hidden border-8 border-white flex flex-col min-h-[720px] relative`}>
-                        
-                        {/* Start Screen */}
-                        {gameState === 'start' && (
-                            <div className="flex-grow flex flex-col items-center justify-center p-10 text-center animate-in">
-                                <div className="w-32 h-32 bg-[#fff9f0] rounded-full flex items-center justify-center text-[#e8b69d] mb-10 shadow-inner border-4 border-white relative">
-                                    <Coffee size={56} />
-                                    <div className="absolute -top-2 -right-2 bg-white p-2 rounded-full shadow-md text-[#ffb7b2] animate-pulse">
-                                        <Heart size={20} fill="currentColor" />
+                useEffect(() => {
+                    let timer;
+                    if (gameState === 'playing' && timeLeft > 0 && !showThinkingPoint) {
+                        timer = setInterval(() => {
+                            setTimeLeft(prev => prev - 1);
+                        }, 1000);
+                    } else if (timeLeft === 0) {
+                        setGameState('result');
+                    }
+                    return () => clearInterval(timer);
+                }, [gameState, timeLeft, showThinkingPoint]);
+
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-4">
+                        <div className="w-full max-w-md bg-white rounded-[3.5rem] shadow-2xl overflow-hidden border-8 border-white flex flex-col min-h-[720px] relative">
+                            
+                            {/* Start Screen */}
+                            {gameState === 'start' && (
+                                <div className="flex-grow flex flex-col items-center justify-center p-10 text-center animate-in">
+                                    <div className="w-32 h-32 bg-[#fff9f0] rounded-full flex items-center justify-center text-[#e8b69d] mb-10 shadow-inner border-4 border-white relative">
+                                        <Icon name={Coffee} size={56} />
+                                        <div className="absolute -top-2 -right-2 bg-white p-2 rounded-full shadow-md text-[#ffb7b2] animate-pulse">
+                                            <Icon name={Heart} size={20} fill="currentColor" />
+                                        </div>
                                     </div>
+                                    <h2 className="text-3xl font-bold mb-5 text-[#5a4d44]">思考のスキャニング</h2>
+                                    <p className="text-[#8e7e74] text-sm mb-12 italic font-medium">
+                                        「思考のブリッジ」をマスターしましょう。🌿
+                                    </p>
+                                    <button onClick={startGame} className="w-full bg-[#ffb7b2] hover:bg-[#ff9a9e] text-white font-bold py-6 px-8 rounded-full text-xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95">
+                                        特訓をはじめる
+                                    </button>
                                 </div>
-                                <h2 className="text-3xl font-bold mb-5 tracking-tight leading-tight">思考のスキャニング<br/><span className="text-[#ffb7b2]">20問・100点満点</span></h2>
-                                <p className={`${theme.textSub} text-[14px] mb-12 leading-relaxed px-4 italic`}>
-                                    解説をじっくり読んで、自分のペースで<br/>
-                                    <b>「思考のブリッジ」</b>をマスターしましょう。🌿
-                                </p>
-                                <button onClick={startGame} className={`w-full ${theme.primary} ${theme.primaryHover} text-white font-bold py-6 px-8 rounded-full text-xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95`}>
-                                    <Play fill="white" size={24} /> 特訓をはじめる
-                                </button>
-                            </div>
-                        )}
+                            )}
 
-                        {/* Playing Screen */}
-                        {gameState === 'playing' && shuffledLevels.length > 0 && (
-                            <div className="flex-grow flex flex-col p-8 animate-in">
-                                <div className="flex justify-between items-center mb-8">
-                                    <div className="text-left">
-                                        <span className="text-[10px] font-black text-[#b8a398] uppercase tracking-[0.2em] block mb-2 opacity-80 italic">{shuffledLevels[currentLevelIdx].type}</span>
-                                        <div className="text-2xl font-black italic text-[#e8b69d]">Score: {score}</div>
+                            {/* Playing Screen */}
+                            {gameState === 'playing' && shuffledLevels.length > 0 && (
+                                <div className="flex-grow flex flex-col p-8 animate-in">
+                                    <div className="flex justify-between items-center mb-8">
+                                        <div className="text-left">
+                                            <span className="text-[10px] font-black text-[#b8a398] block mb-1 uppercase tracking-widest italic">{shuffledLevels[currentLevelIdx].type}</span>
+                                            <div className="text-2xl font-black italic text-[#e8b69d]">Score: {score}</div>
+                                        </div>
+                                        <div className="bg-white border border-[#ffefef] text-[#ff9a9e] px-4 py-2 rounded-full font-bold flex items-center gap-2">
+                                            <Icon name={Timer} size={16} /> <span className="font-mono">{timeLeft}s</span>
+                                        </div>
                                     </div>
-                                    <div className={`flex items-center gap-2 font-bold px-4 py-2 rounded-full shadow-sm transition-all ${timeLeft < 30 ? 'bg-red-50 text-red-400' : 'bg-white text-[#ff9a9e]'}`}>
-                                        <Timer size={16} /> <span className="font-mono">{timeLeft}s</span>
+
+                                    <div className="bg-[#fffcf8] border-2 border-[#f5efeb] p-8 rounded-[3rem] text-center mb-10 min-h-[160px] flex items-center justify-center">
+                                        <h3 className={`text-xl font-bold text-[#5a4d44] ${showThinkingPoint ? 'opacity-50 scale-95' : ''}`}>
+                                            "{shuffledLevels[currentLevelIdx].target}"
+                                        </h3>
                                     </div>
-                                </div>
 
-                                <div className="bg-[#fffcf8] border-2 border-[#f5efeb] p-8 rounded-[3rem] text-center mb-10 relative shadow-sm flex items-center justify-center min-h-[160px]">
-                                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white px-5 py-1.5 rounded-full border border-[#f5efeb] text-[10px] font-black text-[#b8a398] uppercase tracking-[0.2em] italic shadow-sm">Target Phrase</span>
-                                    <h3 className={`text-xl font-bold transition-all ${showThinkingPoint ? 'scale-90 text-[#8e7e74] italic' : 'scale-100'}`}>
-                                        "{shuffledLevels[currentLevelIdx].target}"
-                                    </h3>
-                                </div>
-
-                                {!showThinkingPoint ? (
-                                    <div className="grid grid-cols-1 gap-3.5 animate-in">
-                                        {shuffledLevels[currentLevelIdx].options.map((option, idx) => (
-                                            <button key={idx} onClick={() => handleSelectAnswer(option)} className="w-full p-4.5 text-left rounded-[1.5rem] bg-[#f9f5f2] hover:bg-white hover:border-[#ffb7b2] hover:shadow-lg border-2 border-transparent transition-all font-bold text-[#7a6a5f] text-sm flex justify-between items-center group active:scale-95">
-                                                <span>{option}</span>
-                                                <ArrowRight size={18} className="text-[#dcd0c9] group-hover:text-[#ffb7b2] group-hover:translate-x-1.5 transition-all" />
+                                    {!showThinkingPoint ? (
+                                        <div className="grid grid-cols-1 gap-3.5">
+                                            {shuffledLevels[currentLevelIdx].options.map((option, idx) => (
+                                                <button key={idx} onClick={() => handleSelectAnswer(option)} className="w-full p-4.5 text-left rounded-[1.5rem] bg-[#f9f5f2] hover:bg-[#fffcf8] hover:border-[#ffb7b2] border-2 border-transparent transition-all font-bold text-[#7a6a5f] text-sm flex justify-between items-center group active:scale-95">
+                                                    <span>{option}</span>
+                                                    <Icon name={ArrowRight} size={18} className="text-[#dcd0c9] group-hover:text-[#ffb7b2]" />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="animate-in flex flex-col flex-grow">
+                                            <div className={`w-full p-5 mb-6 rounded-[1.5rem] border-2 flex justify-between items-center ${selectedOption === shuffledLevels[currentLevelIdx].answer ? 'border-[#82c182] bg-[#f0f9f0]' : 'border-[#ff9a9e] bg-[#fff5f5]'}`}>
+                                                <div className="flex items-center gap-3 font-bold text-sm text-[#5a4d44]">
+                                                    {selectedOption === shuffledLevels[currentLevelIdx].answer ? <Icon name={CheckCircle} size={20} className="text-[#82c182]" /> : <Icon name={XCircle} size={20} className="text-[#ff9a9e]" />}
+                                                    <span>{selectedOption}</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-[#fff9f0] p-6 rounded-[2rem] border-l-8 border-[#ffb7b2] flex gap-4 mb-8">
+                                                <div className="bg-white p-2 rounded-xl h-fit"><Icon name={Lightbulb} className="text-[#ffb7b2]" size={22} /></div>
+                                                <div className="text-[15px] leading-relaxed font-bold text-[#7a6a5f]">
+                                                    <span className="text-[#b8a398] block mb-2 text-[10px] font-black uppercase">Thinking Point</span>
+                                                    {shuffledLevels[currentLevelIdx].thinking}
+                                                </div>
+                                            </div>
+                                            <button onClick={handleGoToNext} className="mt-auto w-full py-5 rounded-full bg-[#a8dadc] text-white font-bold text-lg shadow-lg flex items-center justify-center gap-3 active:scale-95">
+                                                次の問題へ <Icon name={ChevronRight} size={20} />
                                             </button>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="animate-in flex flex-col flex-grow">
-                                        <div className={`w-full p-5 mb-6 rounded-[1.5rem] border-2 flex justify-between items-center shadow-sm ${selectedOption === shuffledLevels[currentLevelIdx].answer ? 'border-[#82c182] bg-[#f0f9f0]' : 'border-[#ff9a9e] bg-[#fff5f5]'}`}>
-                                            <div className="flex items-center gap-3 font-bold text-sm">
-                                                {selectedOption === shuffledLevels[currentLevelIdx].answer ? <CheckCircle size={20} className="text-[#82c182]" /> : <XCircle size={20} className="text-[#ff9a9e]" />}
-                                                <span>{selectedOption}</span>
-                                            </div>
                                         </div>
-                                        <div className="bg-[#fff9f0] p-6 rounded-[2rem] border-l-8 border-[#ffb7b2] flex gap-4 shadow-sm mb-8">
-                                            <div className="bg-white p-2 rounded-xl h-fit"><Lightbulb className="text-[#ffb7b2]" size={22} /></div>
-                                            <div className="text-[15px] leading-relaxed font-bold text-[#7a6a5f]">
-                                                <span className="text-[#b8a398] block mb-2 text-[11px] uppercase font-black tracking-tighter">Thinking Point</span>
-                                                {shuffledLevels[currentLevelIdx].thinking}
-                                            </div>
-                                        </div>
-                                        <button onClick={handleGoToNext} className={`mt-auto w-full py-5 rounded-full ${theme.secondary} text-white font-bold text-lg shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-all mb-2`}>
-                                            次の問題へ <ChevronRight size={20} />
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                                    )}
+                                </div>
+                            )}
 
-                        {/* Result Screen */}
-                        {gameState === 'result' && (
-                            <div className="flex-grow flex flex-col items-center justify-center p-12 text-center zoom-in">
-                                <Award size={72} strokeWidth={1} className="text-[#e8b69d] mb-8" />
-                                <h2 className="text-3xl font-bold mb-3 text-slate-800">特訓、おつかれさま🌿</h2>
-                                <div className="text-8xl font-black text-[#ffb7b2] mb-12 tracking-tighter">
-                                    {score}<span className="text-3xl text-[#dcd0c9] ml-1">/100</span>
+                            {/* Result Screen */}
+                            {gameState === 'result' && (
+                                <div className="flex-grow flex flex-col items-center justify-center p-12 text-center zoom-in">
+                                    <Icon name={Award} size={72} className="text-[#e8b69d] mb-8" />
+                                    <h2 className="text-3xl font-bold mb-3 text-[#5a4d44]">特訓、おつかれさま🌿</h2>
+                                    <div className="text-8xl font-black text-[#ffb7b2] mb-12">{score}</div>
+                                    <button onClick={startGame} className="w-full text-[#b8a398] font-bold py-3 text-xs underline flex items-center justify-center gap-2">
+                                        <Icon name={RotateCcw} size={14} /> 再挑戦する
+                                    </button>
                                 </div>
-                                <div className="bg-[#fffcf8] p-8 rounded-[3rem] mb-12 w-full border-2 border-[#f5efeb] shadow-inner italic font-bold text-[#8e7e74]">
-                                    {score === 100 ? "【Sランク】完璧です！" : score >= 80 ? "【Aランク】素晴らしい！" : "【Bランク】よく頑張りました！"}
-                                </div>
-                                <button onClick={startGame} className="w-full text-[#b8a398] hover:text-[#7a6a5f] font-bold py-3 text-xs underline underline-offset-8 decoration-2 flex items-center justify-center gap-2">
-                                    <RotateCcw size={14} /> 新しい問題セットで再挑戦
-                                </button>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
-                </div>
-            );
-        };
+                );
+            };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            root.render(<App />);
+        };
     </script>
 </body>
 </html>
+
 
 
